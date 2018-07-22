@@ -1,0 +1,225 @@
+diff -u -r ../apt-1.4.7/apt-pkg/contrib/fileutl.cc ./apt-pkg/contrib/fileutl.cc
+--- ../apt-1.4.7/apt-pkg/contrib/fileutl.cc	2017-07-13 23:45:39.000000000 +0200
++++ ./apt-pkg/contrib/fileutl.cc	2017-09-17 20:46:39.567888481 +0200
+@@ -46,7 +46,9 @@
+ #include <dirent.h>
+ #include <signal.h>
+ #include <errno.h>
++#ifndef __ANDROID__
+ #include <glob.h>
++#endif
+ #include <pwd.h>
+ #include <grp.h>
+ 
+@@ -106,7 +108,7 @@
+             _exit(100);
+       }
+ 
+-      if (chdir("/tmp/") != 0)
++      if (chdir("/gnu/usr/tmp/") != 0)
+ 	 _exit(100);
+ 	 
+       unsigned int Count = 1;
+@@ -2752,6 +2754,7 @@
+ }
+ 									/*}}}*/
+ 
++#ifndef __ANDROID__
+ // Glob - wrapper around "glob()"					/*{{{*/
+ std::vector<std::string> Glob(std::string const &pattern, int flags)
+ {
+@@ -2777,6 +2780,7 @@
+    globfree(&globbuf);
+    return result;
+ }
++#endif
+ 									/*}}}*/
+ static std::string APT_NONNULL(1) GetTempDirEnv(char const * const env)	/*{{{*/
+ {
+@@ -2790,10 +2794,10 @@
+    struct stat st;
+    if (!tmpdir || strlen(tmpdir) == 0 || // tmpdir is set
+ 	 stat(tmpdir, &st) != 0 || (st.st_mode & S_IFDIR) == 0) // exists and is directory
+-      tmpdir = "/tmp";
++      tmpdir = "/gnu/usr/tmp";
+    else if (geteuid() != 0 && // root can do everything anyway
+ 	 faccessat(AT_FDCWD, tmpdir, R_OK | W_OK | X_OK, AT_EACCESS) != 0) // current user has rwx access to directory
+-      tmpdir = "/tmp";
++      tmpdir = "/gnu/usr/tmp";
+ 
+    return string(tmpdir);
+ }
+@@ -2928,160 +2932,6 @@
+ 									/*}}}*/
+ bool DropPrivileges()							/*{{{*/
+ {
+-   if(_config->FindB("Debug::NoDropPrivs", false) == true)
+-      return true;
+-
+-#if __gnu_linux__
+-#if defined(PR_SET_NO_NEW_PRIVS) && ( PR_SET_NO_NEW_PRIVS != 38 )
+-#error "PR_SET_NO_NEW_PRIVS is defined, but with a different value than expected!"
+-#endif
+-   // see prctl(2), needs linux3.5 at runtime - magic constant to avoid it at buildtime
+-   int ret = prctl(38, 1, 0, 0, 0);
+-   // ignore EINVAL - kernel is too old to understand the option
+-   if(ret < 0 && errno != EINVAL)
+-      _error->Warning("PR_SET_NO_NEW_PRIVS failed with %i", ret);
+-#endif
+-
+-   // empty setting disables privilege dropping - this also ensures
+-   // backward compatibility, see bug #764506
+-   const std::string toUser = _config->Find("APT::Sandbox::User");
+-   if (toUser.empty() || toUser == "root")
+-      return true;
+-
+-   // a lot can go wrong trying to drop privileges completely,
+-   // so ideally we would like to verify that we have done it –
+-   // but the verify asks for too much in case of fakeroot (and alike)
+-   // [Specific checks can be overridden with dedicated options]
+-   bool const VerifySandboxing = _config->FindB("APT::Sandbox::Verify", false);
+-
+-   // uid will be 0 in the end, but gid might be different anyway
+-   uid_t const old_uid = getuid();
+-   gid_t const old_gid = getgid();
+-
+-   if (old_uid != 0)
+-      return true;
+-
+-   struct passwd *pw = getpwnam(toUser.c_str());
+-   if (pw == NULL)
+-      return _error->Error("No user %s, can not drop rights", toUser.c_str());
+-
+-   // Do not change the order here, it might break things
+-   // Get rid of all our supplementary groups first
+-   if (setgroups(1, &pw->pw_gid))
+-      return _error->Errno("setgroups", "Failed to setgroups");
+-
+-   // Now change the group ids to the new user
+-#ifdef HAVE_SETRESGID
+-   if (setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) != 0)
+-      return _error->Errno("setresgid", "Failed to set new group ids");
+-#else
+-   if (setegid(pw->pw_gid) != 0)
+-      return _error->Errno("setegid", "Failed to setegid");
+-
+-   if (setgid(pw->pw_gid) != 0)
+-      return _error->Errno("setgid", "Failed to setgid");
+-#endif
+-
+-   // Change the user ids to the new user
+-#ifdef HAVE_SETRESUID
+-   if (setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) != 0)
+-      return _error->Errno("setresuid", "Failed to set new user ids");
+-#else
+-   if (setuid(pw->pw_uid) != 0)
+-      return _error->Errno("setuid", "Failed to setuid");
+-   if (seteuid(pw->pw_uid) != 0)
+-      return _error->Errno("seteuid", "Failed to seteuid");
+-#endif
+-
+-   // disabled by default as fakeroot doesn't implement getgroups currently (#806521)
+-   if (VerifySandboxing == true || _config->FindB("APT::Sandbox::Verify::Groups", false) == true)
+-   {
+-      // Verify that the user isn't still in any supplementary groups
+-      long const ngroups_max = sysconf(_SC_NGROUPS_MAX);
+-      std::unique_ptr<gid_t[]> gidlist(new gid_t[ngroups_max]);
+-      if (unlikely(gidlist == NULL))
+-	 return _error->Error("Allocation of a list of size %lu for getgroups failed", ngroups_max);
+-      ssize_t gidlist_nr;
+-      if ((gidlist_nr = getgroups(ngroups_max, gidlist.get())) < 0)
+-	 return _error->Errno("getgroups", "Could not get new groups (%lu)", ngroups_max);
+-      for (ssize_t i = 0; i < gidlist_nr; ++i)
+-	 if (gidlist[i] != pw->pw_gid)
+-	    return _error->Error("Could not switch group, user %s is still in group %d", toUser.c_str(), gidlist[i]);
+-   }
+-
+-   // enabled by default as all fakeroot-lookalikes should fake that accordingly
+-   if (VerifySandboxing == true || _config->FindB("APT::Sandbox::Verify::IDs", true) == true)
+-   {
+-      // Verify that gid, egid, uid, and euid changed
+-      if (getgid() != pw->pw_gid)
+-	 return _error->Error("Could not switch group");
+-      if (getegid() != pw->pw_gid)
+-	 return _error->Error("Could not switch effective group");
+-      if (getuid() != pw->pw_uid)
+-	 return _error->Error("Could not switch user");
+-      if (geteuid() != pw->pw_uid)
+-	 return _error->Error("Could not switch effective user");
+-
+-#ifdef HAVE_GETRESUID
+-      // verify that the saved set-user-id was changed as well
+-      uid_t ruid = 0;
+-      uid_t euid = 0;
+-      uid_t suid = 0;
+-      if (getresuid(&ruid, &euid, &suid))
+-	 return _error->Errno("getresuid", "Could not get saved set-user-ID");
+-      if (suid != pw->pw_uid)
+-	 return _error->Error("Could not switch saved set-user-ID");
+-#endif
+-
+-#ifdef HAVE_GETRESGID
+-      // verify that the saved set-group-id was changed as well
+-      gid_t rgid = 0;
+-      gid_t egid = 0;
+-      gid_t sgid = 0;
+-      if (getresgid(&rgid, &egid, &sgid))
+-	 return _error->Errno("getresuid", "Could not get saved set-group-ID");
+-      if (sgid != pw->pw_gid)
+-	 return _error->Error("Could not switch saved set-group-ID");
+-#endif
+-   }
+-
+-   // disabled as fakeroot doesn't forbid (by design) (re)gaining root from unprivileged
+-   if (VerifySandboxing == true || _config->FindB("APT::Sandbox::Verify::Regain", false) == true)
+-   {
+-      // Check that uid and gid changes do not work anymore
+-      if (pw->pw_gid != old_gid && (setgid(old_gid) != -1 || setegid(old_gid) != -1))
+-	 return _error->Error("Could restore a gid to root, privilege dropping did not work");
+-
+-      if (pw->pw_uid != old_uid && (setuid(old_uid) != -1 || seteuid(old_uid) != -1))
+-	 return _error->Error("Could restore a uid to root, privilege dropping did not work");
+-   }
+-
+-   if (_config->FindB("APT::Sandbox::ResetEnvironment", true))
+-   {
+-      setenv("HOME", pw->pw_dir, 1);
+-      setenv("USER", pw->pw_name, 1);
+-      setenv("USERNAME", pw->pw_name, 1);
+-      setenv("LOGNAME", pw->pw_name, 1);
+-      auto const shell = flNotDir(pw->pw_shell);
+-      if (shell == "false" || shell == "nologin")
+-	 setenv("SHELL", "/bin/sh", 1);
+-      else
+-	 setenv("SHELL", pw->pw_shell, 1);
+-      auto const apt_setenv_tmp = [](char const * const env) {
+-	 auto const tmpdir = getenv(env);
+-	 if (tmpdir != nullptr)
+-	 {
+-	    auto const ourtmpdir = GetTempDirEnv(env);
+-	    if (ourtmpdir != tmpdir)
+-	       setenv(env, ourtmpdir.c_str(), 1);
+-	 }
+-      };
+-      apt_setenv_tmp("TMPDIR");
+-      apt_setenv_tmp("TEMPDIR");
+-      apt_setenv_tmp("TMP");
+-      apt_setenv_tmp("TEMP");
+-   }
+-
+    return true;
+ }
+ 									/*}}}*/
+diff -u -r ../apt-1.4.7/apt-pkg/contrib/fileutl.h ./apt-pkg/contrib/fileutl.h
+--- ../apt-1.4.7/apt-pkg/contrib/fileutl.h	2017-07-13 23:45:39.000000000 +0200
++++ ./apt-pkg/contrib/fileutl.h	2017-08-26 22:05:52.875932441 +0200
+@@ -239,7 +239,9 @@
+ APT_HIDDEN std::string flNormalize(std::string file);
+ 
+ // simple c++ glob
++#ifndef __ANDROID__
+ std::vector<std::string> Glob(std::string const &pattern, int flags=0);
++#endif
+ 
+ /** \brief Popen() implementation that execv() instead of using a shell
+  *

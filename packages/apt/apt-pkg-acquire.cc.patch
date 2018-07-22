@@ -1,0 +1,10 @@
++++ ./apt-pkg/acquire.cc	2018-06-13 17:36:07.363231436 +0300
+@@ -663,7 +663,7 @@
+ pkgAcquire::RunResult pkgAcquire::Run(int PulseIntervall)
+ {
+    _error->PushToStack();
+-   CheckDropPrivsMustBeDisabled(*this);
++   //CheckDropPrivsMustBeDisabled(*this);
+ 
+    Running = true;
+    

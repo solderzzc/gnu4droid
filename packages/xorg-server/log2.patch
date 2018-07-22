@@ -1,0 +1,9 @@
++++ ./os/Makefile.am	2018-05-01 15:47:34.126165620 +0300
+@@ -9,6 +9,7 @@
+ 
+ XSERVER_POLL_SRCS=xserver_poll.c
+ 
++libos_la_LDFLAGS = -llog
+ libos_la_SOURCES = 	\
+ 	WaitFor.c	\
+ 	access.c	\

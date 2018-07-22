@@ -1,0 +1,9 @@
++++ ./hw/xfree86/os-support/stub/Makefile.am	2018-06-15 18:39:00.300407682 +0300
+@@ -13,6 +13,7 @@
+ 	$(srcdir)/../shared/vidmem.c \
+ 	$(srcdir)/../shared/posix_tty.c \
+ 	$(srcdir)/../shared/sigio.c \
++	stub_platform.c \
+ 	stub_bell.c \
+ 	stub_init.c \
+ 	stub_video.c

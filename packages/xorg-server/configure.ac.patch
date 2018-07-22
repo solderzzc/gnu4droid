@@ -1,0 +1,24 @@
++++ ./configure.ac	2018-06-15 18:31:07.258779588 +0300
+@@ -1951,17 +1951,17 @@
+ 	fi
+ 	AC_MSG_RESULT([$PCI])
+ 
+-	if test "x$CONFIG_UDEV_KMS" = xyes; then
+-		AC_DEFINE(XSERVER_PLATFORM_BUS, 1, [X server supports platform device enumeration])
+-	fi
+-	AC_MSG_RESULT([$XSERVER_PLATFORM_BUS])
++	#if test "x$CONFIG_UDEV_KMS" = xyes; then
++	#	AC_DEFINE(XSERVER_PLATFORM_BUS, 1, [X server supports platform device enumeration])
++	#fi
++	#AC_MSG_RESULT([$XSERVER_PLATFORM_BUS])
+ 	dnl ===================================================================
+ 	dnl ==================== end of PCI configuration =====================
+ 	dnl ===================================================================
+ 
+ 	case $host_os in
+ 	  linux*)
+-		XORG_OS_SUBDIR="linux"
++		XORG_OS_SUBDIR="stub"
+ 		linux_acpi="no"
+ 		case $host_cpu in
+ 		  alpha*)
