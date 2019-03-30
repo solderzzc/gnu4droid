@@ -7,7 +7,7 @@ termux_step_make_install () {
 	local CERTDIR=$TERMUX_PREFIX/etc/tls
 	local CERTFILE=$CERTDIR/cert.pem
 	# If the checksum has changed, it may be time to update the package version.
-	local CERTFILE_SHA256=238823cd92d3bcdd67c1c278536d6c282dd6b526ee6ee97efbf00ef31d8c5d79
+	local CERTFILE_SHA256=c1fd9b235896b1094ee97bfb7e042f93530b5e300781f59b45edf84ee8c75000
 
 	mkdir -p $CERTDIR
 
