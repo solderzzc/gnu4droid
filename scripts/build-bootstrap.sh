@@ -25,8 +25,11 @@ rm -rf $TERMUX_TOPDIR /data/data/org.sharpai/files/usr
 
 $BUILDSCRIPT apt
 
-symlinks=`find /gnu -type l`
+symlinks=`find /data/data/org.sharpai/files -type l`
 
+echo "symlinks $symlinks"
+
+echo "second stage script path is $SECOND_STAGE_SCRIPT"
 rm -f $SECOND_STAGE_SCRIPT
 printf "#!/system/bin/sh\nmklink(){\n   rm -f \$2\n   ln -s \$1 \$2\n}\n\n" > $SECOND_STAGE_SCRIPT
 #echo $symlinks
@@ -60,9 +63,11 @@ for item in $controls; do
 	write_control_to_status $item >> /data/data/org.sharpai/files/usr/var/lib/dpkg/status
 done
 
-echo
+echo "TERMUX_TOPDIR: $TERMUX_TOPDIR"
 
-target_dirs=`find $TERMUX_TOPDIR -name gnu | grep "/massage/gnu" | grep -v subpackages`
+#target_dirs=`find $TERMUX_TOPDIR -name gnu | grep "/massage/gnu" | grep -v subpackages`
+target_dirs=`find $TERMUX_TOPDIR |  grep "/massage/data/data/org.sharpai/files" | grep -v subpackages`
+echo "target dirs: $target_dirs"
 for item in $target_dirs; do
 	package=$(basename $(dirname $(dirname $item)))
 	files=`find $item`
