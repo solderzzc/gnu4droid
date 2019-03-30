@@ -265,8 +265,8 @@ termux_step_setup_variables() {
 	: "${TERMUX_MAKE_PROCESSES:="$(nproc)"}"
 	: "${TERMUX_TOPDIR:="$HOME/.termux-build"}"
 	: "${TERMUX_ARCH:="aarch64"}" # arm, aarch64, i686 or x86_64.
-	: "${TERMUX_PREFIX:="/gnu/usr"}"
-	: "${TERMUX_ANDROID_HOME:="/gnu/home"}"
+	: "${TERMUX_PREFIX:="/data/data/org.sharpai/files/usr"}"
+	: "${TERMUX_ANDROID_HOME:="/data/data/org.sharpai/files/home"}"
 	: "${TERMUX_DEBUG:=""}"
 	: "${TERMUX_PKG_API_LEVEL:="21"}"
 	: "${TERMUX_ANDROID_BUILD_TOOLS_VERSION:="27.0.3"}"

@@ -9,8 +9,9 @@ else
 	REPOROOT="$(dirname $(readlink -f $0))/../"
 fi
 
-IMAGE_NAME=termux/package-builder
-CONTAINER_NAME=termux-package-builder
+IMAGE_NAME=solderzzc/termux-builder
+#termux/package-builder
+CONTAINER_NAME=sharpai-package-builder
 
 USER=builder
 
