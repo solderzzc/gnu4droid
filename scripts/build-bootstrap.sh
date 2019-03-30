@@ -16,30 +16,33 @@ fi
 
 TOPDIR=`dirname $0`/../
 BUILDSCRIPT=$TOPDIR/build-package.sh
-SECOND_STAGE_SCRIPT="$TERMUX_TOPDIR/second_stage.sh"
-BOOTSTRAP_ZIP=$TOPDIR/bootstraps/bootstrap-$TERMUX_ARCH.zip
+SYMLINKS_TXT="$TERMUX_TOPDIR/SYMLINKS.txt"
+BOOTSTRAP_ZIP=~/bootstrap-$TERMUX_ARCH.zip
 
 export TERMUX_TOPDIR TERMUX_ARCH TERMUX_DEBUG
 
 rm -rf $TERMUX_TOPDIR /data/data/org.sharpai/files/usr
-
 $BUILDSCRIPT apt
 
-symlinks=`find /data/data/org.sharpai/files -type l`
+cd /data/data/org.sharpai/files/usr
+symlinks=`find ./ -type l`
 
 echo "symlinks $symlinks"
 
-echo "second stage script path is $SECOND_STAGE_SCRIPT"
-rm -f $SECOND_STAGE_SCRIPT
-printf "#!/system/bin/sh\nmklink(){\n   rm -f \$2\n   ln -s \$1 \$2\n}\n\n" > $SECOND_STAGE_SCRIPT
+echo "Symlinks file is $SYMLINKS_TXT"
+rm -f $SYMLINKS_TXT
+#printf "#!/system/bin/sh\nmklink(){\n   rm -f \$2\n   ln -s \$1 \$2\n}\n\n" > $SYMLINKS_TXT
 #echo $symlinks
 for item in $symlinks; do
 target=`readlink $item`
-[ "$target" == "/bin/sh" ] && target="/data/data/org.sharpai/files/usr/bin/applets/sh"
-echo "mklink $target $item" >> $SECOND_STAGE_SCRIPT
+[ "$target" == "/bin/sh" ] && target="bin/applets/sh"
+echo "$target←$item" >> $SYMLINKS_TXT
+rm $item
 unset target
 done
-chmod +x $SECOND_STAGE_SCRIPT
+
+cd -
+#chmod +x $SYMLINKS_TXT
 
 controls=`find ~/.termux-build -name "control" | grep massage/DEBIAN/control | grep -v subpackages`
 
@@ -67,28 +70,27 @@ echo "TERMUX_TOPDIR: $TERMUX_TOPDIR"
 
 #target_dirs=`find $TERMUX_TOPDIR -name gnu | grep "/massage/gnu" | grep -v subpackages`
 target_dirs=`find $TERMUX_TOPDIR |  grep "/massage/data/data/org.sharpai/files" | grep -v subpackages`
-echo "target dirs: $target_dirs"
-for item in $target_dirs; do
-	package=$(basename $(dirname $(dirname $item)))
-	files=`find $item`
-	list_file="/data/data/org.sharpai/files/usr/var/lib/dpkg/info/$package.list"
-	md5sums_file="/data/data/org.sharpai/files/usr/var/lib/dpkg/info/$package.md5sums"
+#echo "target dirs: $target_dirs"
+#for item in $target_dirs; do
+#	package=$(basename $(dirname $(dirname $item)))
+#	files=`find $item`
+#	list_file="/data/data/org.sharpai/files/usr/var/lib/dpkg/info/$package.list"
+#	md5sums_file="/data/data/org.sharpai/files/usr/var/lib/dpkg/info/$package.md5sums"
 
-	rm -f $list_file $md5sums_file
-	echo >> $SECOND_STAGE_SCRIPT
-	echo "touch $md5sums_file" >> $SECOND_STAGE_SCRIPT
-	for file in $files; do
-		file=${file/"$TERMUX_TOPDIR/$package/massage/gnu"/"/gnu"}
-		echo $file >> $list_file
-		[ -d "${file}" ] || echo md5sum $file '>>' $md5sums_file >> $SECOND_STAGE_SCRIPT
-	done
-	echo >> $SECOND_STAGE_SCRIPT
-done
+#	rm -f $list_file $md5sums_file
+#	touch $md5sums_file
+#	for file in $files; do
+#		file=${file/"$TERMUX_TOPDIR/$package/massage/gnu"/"/gnu"}
+#		echo $file >> $list_file
+#		[ -d "${file}" ] || md5sum $file >> $md5sums_file
+#	done
+#done
 
-cp $SECOND_STAGE_SCRIPT /data/data/org.sharpai/files/usr/bin/
+cp $SYMLINKS_TXT /data/data/org.sharpai/files/usr/
 
 mkdir -p `dirname $BOOTSTRAP_ZIP`
 rm -f $BOOTSTRAP_ZIP
-zip -yr $BOOTSTRAP_ZIP /data/data/org.sharpai/files/usr/*
-
+cd /data/data/org.sharpai/files/usr/
+zip -yr $BOOTSTRAP_ZIP *
+cd -
 echo "Finished"
